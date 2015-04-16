@@ -1,0 +1,6 @@
+{{ define "title" }}Post Listing{{ end }}
+{{ define "content" }}
+  {{ range . }}
+    <p><a href="/post/{{ . }}">{{ . }}</a></p>
+  {{ end }}
+{{ end }}

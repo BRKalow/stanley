@@ -1,0 +1,9 @@
+{{ define "title" }}{{ .Title }}{{ end }}
+{{ define "content" }}
+  <a href="/"><i>Back to listing</i></a>
+  <h1 class="title">{{ .Title }}</h1>
+  <span class="date">{{ .Date }}</span>
+  <article class="markdown-body">
+    {{ .Body }}
+  </article>
+{{ end }}
