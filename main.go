@@ -24,6 +24,8 @@ var templates map[string]*template.Template
 func main() {
 	fmt.Println("Running stanley on port 8080...")
 
+	loadPosts()
+
 	loadTemplates()
 
 	r := mux.NewRouter().StrictSlash(false)
@@ -87,25 +89,33 @@ func PostShowHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func loadPosts() {
+	files, _ := ioutil.ReadDir("posts/")
+
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+}
+
 func loadTemplates() {
-    if templates == nil {
-        templates = make(map[string]*template.Template)
-    }
+	if templates == nil {
+		templates = make(map[string]*template.Template)
+	}
 
-    layouts, err := filepath.Glob("templates/*.html")
-    if err != nil {
-        panic(err)
-    }
+	layouts, err := filepath.Glob("templates/*.html")
+	if err != nil {
+		panic(err)
+	}
 
-    for _, layout := range layouts {
-        templateName := strings.TrimSuffix(filepath.Base(layout), ".html")
+	for _, layout := range layouts {
+		templateName := strings.TrimSuffix(filepath.Base(layout), ".html")
 
-        if layout == "templates/base.html" {
-            templates[templateName] = template.Must(template.ParseFiles(layout))
-        } else {
-            templates[templateName] = template.Must(template.ParseFiles(layout, "templates/base.html"))
-        }
-    }
+		if layout == "templates/base.html" {
+			templates[templateName] = template.Must(template.ParseFiles(layout))
+		} else {
+			templates[templateName] = template.Must(template.ParseFiles(layout, "templates/base.html"))
+		}
+	}
 }
 
 func parsePost(data []byte) (Post, error) {
@@ -119,6 +129,11 @@ func parsePost(data []byte) (Post, error) {
 	}
 
 	post.Body = template.HTML(blackfriday.MarkdownCommon([]byte(dataSplit[1])))
+
+	err = ioutil.WriteFile(fmt.Sprintf("parsed/%v.html", post.Title), []byte(post.Body), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return post, nil
 }
