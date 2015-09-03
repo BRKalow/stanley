@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"html/template"
 	"io/ioutil"
+	"os"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -24,9 +25,8 @@ var templates map[string]*template.Template
 func main() {
 	fmt.Println("Running stanley on port 8080...")
 
-	loadPosts()
-
 	loadTemplates()
+	loadPosts()
 
 	r := mux.NewRouter().StrictSlash(false)
 	r.HandleFunc("/", HomeHandler)
@@ -66,34 +66,23 @@ func HomeHandler(rw http.ResponseWriter, r *http.Request) {
 func PostShowHandler(rw http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("posts/%v.md", id))
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	post, err := parsePost(data)
+	data, err := ioutil.ReadFile(fmt.Sprintf("parsed/%v.md.html", id))
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
 	}
 
-	tpl, ok := templates["post"]
-	if !ok {
-		http.Error(rw, "Template not found", http.StatusInternalServerError)
-		return
-	}
-
-	if err := tpl.ExecuteTemplate(rw, "base", post); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-	}
+	fmt.Fprintf(rw, string(data))
 }
 
 func loadPosts() {
 	files, _ := ioutil.ReadDir("posts/")
 
 	for _, f := range files {
-		fmt.Println(f.Name())
+		data, err := ioutil.ReadFile(fmt.Sprintf("posts/%v", f.Name()))
+		if err != nil {
+			panic(err)
+		}
+		parsePost(f.Name(), data)
 	}
 }
 
@@ -118,22 +107,35 @@ func loadTemplates() {
 	}
 }
 
-func parsePost(data []byte) (Post, error) {
+func parsePost(id string, data []byte) {
 	post := Post{}
 
 	dataSplit := strings.Split(string(data), "<-->")
 	config := dataSplit[0]
 	err := yaml.Unmarshal([]byte(config), &post)
 	if err != nil {
-		return post, errors.New("parsePost: something went wrong parsing yaml.")
+		fmt.Println(errors.New("parsePost: something went wrong parsing yaml."))
 	}
 
 	post.Body = template.HTML(blackfriday.MarkdownCommon([]byte(dataSplit[1])))
 
-	err = ioutil.WriteFile(fmt.Sprintf("parsed/%v.html", post.Title), []byte(post.Body), 0644)
-	if err != nil {
-		fmt.Println(err)
+	tpl, ok := templates["post"]
+	if !ok {
+		fmt.Println("parsePost: template not found")
+		return
 	}
 
-	return post, nil
+	f, err := os.Create(fmt.Sprintf("parsed/%v.html", id))
+	if err != nil {
+		panic(err)
+	}
+
+	defer f.Close()
+
+	err = tpl.ExecuteTemplate(f, "base", post)
+	if err != nil {
+		panic(err)
+	}
+
+	f.Sync()
 }
