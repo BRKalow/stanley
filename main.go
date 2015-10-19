@@ -125,6 +125,12 @@ func parsePost(id string, data []byte) {
 		return
 	}
 
+	err = os.Mkdir("parsed", 'd' | 0755)
+
+	if err != nil && !os.IsExist(err) {
+		panic(err)
+	}
+
 	f, err := os.Create(fmt.Sprintf("parsed/%v.html", id))
 	if err != nil {
 		panic(err)
